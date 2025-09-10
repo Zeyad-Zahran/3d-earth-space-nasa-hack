@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from 'react';
-import Globe from 'react-globe.gl';
 import * as satellite from 'satellite.js';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import EarthGlobe from "./EarthGlobe";
 
 interface SatelliteData {
   name: string;
@@ -38,7 +38,6 @@ interface Conjunction {
 }
 
 const SatelliteDashboard = () => {
-  const globeRef = useRef<any>();
   const { toast } = useToast();
   
   const [tleText, setTleText] = useState(`TIANMU-1 20
@@ -298,10 +297,8 @@ ISS (ZARYA)
   });
 
   useEffect(() => {
-    if (!globeRef.current) return;
-    globeRef.current.controls().autoRotate = false;
-    globeRef.current.pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
-  }, [globeRef.current]);
+    // Initial setup if needed
+  }, []);
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gradient-space">
@@ -500,33 +497,11 @@ ISS (ZARYA)
 
       {/* Globe Visualization */}
       <div className="flex-1 relative overflow-hidden">
-        <Globe
-          ref={globeRef}
-          globeImageUrl="/earth-texture.jpg"
-          backgroundColor="rgba(0,0,0,0)"
-          width={typeof window !== 'undefined' ? window.innerWidth : 800}
-          height={typeof window !== 'undefined' ? window.innerHeight : 600}
-          
+        <EarthGlobe
           pointsData={pointsData}
-          pointLat={(d: any) => d.lat}
-          pointLng={(d: any) => d.lng}
-          pointAltitude={(d: any) => (d.altKm ? d.altKm/6371 : 0.01)} // Relative to Earth radius
-          pointRadius={(d: any) => d.size || 0.5}
-          pointColor={(d: any) => d.color || '#22c55e'}
-          
           arcsData={arcsData}
-          arcStartLat={(d: any) => d.startLat}
-          arcStartLng={(d: any) => d.startLng}
-          arcEndLat={(d: any) => d.endLat}
-          arcEndLng={(d: any) => d.endLng}
-          arcColor={(d: any) => d.color || [['#22c55e', 0.6], ['#3b82f6', 0.8]]}
-          arcStroke={(d: any) => d.stroke || 1}
-          arcDashLength={0.5}
-          arcDashGap={0.3}
-          arcDashAnimateTime={2000}
-          
-          atmosphereColor="#3b82f6"
-          atmosphereAltitude={0.15}
+          width={typeof window !== 'undefined' ? window.innerWidth - (window.innerWidth > 1024 ? 384 : 0) : 800}
+          height={typeof window !== 'undefined' ? window.innerHeight : 600}
         />
         
         {/* Globe Controls Overlay */}

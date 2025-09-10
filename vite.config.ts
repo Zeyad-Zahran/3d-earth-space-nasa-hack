@@ -13,8 +13,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "three/webgpu": "three",
-      "three/build/three.webgpu.js": "three/build/three.module.js",
     },
   },
 }));
