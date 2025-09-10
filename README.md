@@ -1,73 +1,30 @@
-# Welcome to your Lovable project
+# SpaceTrack Dashboard
 
-## Project info
+The SpaceTrack Dashboard is an interactive satellite tracking and collision analysis system built as a web application. Its main purpose is to allow users to visualize satellites orbiting the Earth in real time and to analyze possible close approaches between satellites or with space debris.
 
-**URL**: https://lovable.dev/projects/9d941514-5c02-4b0c-81ad-4fffc60b608e
+The system works by using TLE (Two-Line Element) data, which is the standard format for describing satellite orbits. This information is processed with the SGP4 algorithm to predict satellite positions at any given moment. The positions are then converted into geographic coordinates and displayed in a 3D view of Earth.
 
-## How can I edit this code?
+### Key Features
+- **Satellite Tracking**: Load data for multiple satellites and see them moving in orbit around Earth.  
+- **Collision Detection**: The system calculates distances between satellites to detect possible conjunctions and provides alerts when satellites come too close.  
+- **3D Visualization**: Realistic Earth textures, orbital paths, and satellite points displayed in an interactive globe. Users can rotate, zoom, and view orbits from different perspectives.  
+- **Mission Planning Support**: Look ahead in time to predict possible future risks, supporting operators and mission planners.  
 
-There are several ways of editing your application.
+### Technical Stack
+- React + TypeScript  
+- Vite as the build tool  
+- Three.js for 3D graphics  
+- satellite.js for orbital mechanics  
+- Tailwind CSS and shadcn-ui for the interface  
 
-**Use Lovable**
+### Limitations
+The dashboard relies only on TLE data, which becomes less accurate after about two weeks, and collision detection is simplified to distance-based analysis rather than full probability modeling. Despite this, it provides a strong demonstration of how orbital mechanics and visualization can be combined into an accessible and educational web tool.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/9d941514-5c02-4b0c-81ad-4fffc60b608e) and start prompting.
+### Future Enhancements
+- Automatic live updates from satellite databases  
+- More advanced collision probability calculations  
+- Collaborative features for mission teams  
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/9d941514-5c02-4b0c-81ad-4fffc60b608e) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+**Project implemented by Zeyad Zahran**  
