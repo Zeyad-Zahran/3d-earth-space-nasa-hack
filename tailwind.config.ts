@@ -58,6 +58,18 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      backgroundImage: {
+        'gradient-space': 'var(--gradient-space)',
+        'gradient-orbital': 'var(--gradient-orbital)',
+        'gradient-satellite': 'var(--gradient-satellite)',
+        'gradient-warning': 'var(--gradient-warning)',
+      },
+      boxShadow: {
+        'glow-primary': 'var(--glow-primary)',
+        'glow-orbital': 'var(--glow-orbital)',
+        'glow-warning': 'var(--glow-warning)',
+        'shadow-deep': 'var(--shadow-deep)',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
