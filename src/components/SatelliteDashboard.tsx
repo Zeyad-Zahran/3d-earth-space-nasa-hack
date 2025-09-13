@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin } from "lucide-react";
+import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EarthGlobe from "./EarthGlobe";
 
@@ -40,14 +40,7 @@ interface Conjunction {
 const SatelliteDashboard = () => {
   const { toast } = useToast();
   
-  const [tleText, setTleText] = useState(`TIANMU-1 20
-1 58661U 23208B   25252.28637402  .00007433  00000+0  28635-3 0  9992
-2 58661  97.4279   4.0828 0007010 235.0082 125.0499 15.26617723 94470
-
-ISS (ZARYA)
-1 25544U 98067A   25252.50000000  .00002182  00000+0  40768-4 0  9990
-2 25544  51.6461 339.7939 0001393  92.8340 267.3279 15.49309239426789`);
-  
+  const [tleText, setTleText] = useState('');
   const [sats, setSats] = useState<SatelliteData[]>([]);
   const [tracks, setTracks] = useState<SatelliteTrack[]>([]);
   const [conjunctions, setConjunctions] = useState<Conjunction[]>([]);
@@ -55,9 +48,71 @@ ISS (ZARYA)
   const [windowMinutes, setWindowMinutes] = useState(60);
   const [sampleSec, setSampleSec] = useState(30);
   const [running, setRunning] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [alerts, setAlerts] = useState<string[]>([]);
+  const [autoLoaded, setAutoLoaded] = useState(false);
 
-  // Parse TLE input into sets
+  // Fetch satellites from Celestrak
+  async function fetchSatellitesFromCelestrak() {
+    setLoading(true);
+    try {
+      const response = await fetch("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const text = await response.text();
+      
+      // Parse Celestrak format: every 3 lines = one satellite (name + 2 TLE lines)
+      const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      const satellites = [];
+      for (let i = 0; i < lines.length; i += 3) {
+        if (i + 2 < lines.length && lines[i + 1].startsWith('1 ') && lines[i + 2].startsWith('2 ')) {
+          satellites.push({
+            name: lines[i].trim(),
+            l1: lines[i + 1].trim(),
+            l2: lines[i + 2].trim()
+          });
+        }
+      }
+      
+      // Convert to satellite records and limit to first 50 for performance
+      const parsed = satellites.slice(0, 50).map(s => {
+        try {
+          const satrec = satellite.twoline2satrec(s.l1, s.l2);
+          return { name: s.name, l1: s.l1, l2: s.l2, satrec };
+        } catch (e) {
+          return null;
+        }
+      }).filter(Boolean) as SatelliteData[];
+      
+      setSats(parsed);
+      setTleText(satellites.slice(0, 50).map(s => `${s.name}\n${s.l1}\n${s.l2}`).join('\n\n'));
+      setConjunctions([]);
+      setTracks([]);
+      setAlerts([]);
+      setAutoLoaded(true);
+      
+      toast({
+        title: "Satellites Loaded",
+        description: `Successfully loaded ${parsed.length} satellites from Celestrak`,
+      });
+      
+      // Auto-run analysis after loading
+      setTimeout(() => computeTracksAndConjunctions(), 500);
+      
+    } catch (error) {
+      console.error('Error fetching satellites:', error);
+      toast({
+        title: "Error Loading Satellites",
+        description: "Failed to fetch satellite data from Celestrak. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Parse TLE input into sets (for manual input)
   function parseTLEs(text: string) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const sets: { name: string; l1: string; l2: string }[] = [];
@@ -297,8 +352,11 @@ ISS (ZARYA)
   });
 
   useEffect(() => {
-    // Initial setup if needed
-  }, []);
+    // Auto-load satellites from Celestrak on component mount
+    if (!autoLoaded) {
+      fetchSatellitesFromCelestrak();
+    }
+  }, [autoLoaded]);
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gradient-space">
@@ -316,41 +374,68 @@ ISS (ZARYA)
             </div>
           </div>
 
-          {/* TLE Input */}
+          {/* Satellite Data Source */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Satellite Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={fetchSatellitesFromCelestrak} 
+                  variant="orbital" 
+                  size="sm"
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Loading...' : 'Refresh from Celestrak'}
+                </Button>
+                <Button 
+                  onClick={computeTracksAndConjunctions} 
+                  variant="satellite" 
+                  size="sm"
+                  disabled={running || sats.length === 0}
+                >
+                  {running ? 'Analyzing...' : 'Run Analysis'}
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Auto-loading active satellites from Celestrak
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manual TLE Input (Optional) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <GlobeIcon className="w-4 h-4" />
-                TLE Data Input
+                Manual TLE Input
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Textarea 
                 value={tleText} 
                 onChange={(e) => setTleText(e.target.value)}
-                placeholder="Paste TLE data here..."
-                className="h-32 font-mono text-xs bg-muted/50"
+                placeholder="Paste custom TLE data here (optional)..."
+                className="h-24 font-mono text-xs bg-muted/50"
               />
               <div className="flex gap-2">
-                <Button onClick={loadTLEs} variant="orbital" size="sm">
-                  Load TLEs
-                </Button>
-                <Button 
-                  onClick={computeTracksAndConjunctions} 
-                  variant="satellite" 
-                  size="sm"
-                  disabled={running}
-                >
-                  {running ? 'Analyzing...' : 'Run Analysis'}
+                <Button onClick={loadTLEs} variant="outline" size="sm">
+                  Load Custom TLEs
                 </Button>
                 <Button 
                   onClick={() => { 
-                    setSats([]); setTracks([]); setConjunctions([]); setAlerts([]); 
+                    setSats([]); setTracks([]); setConjunctions([]); setAlerts([]); setTleText(''); setAutoLoaded(false);
                   }} 
                   variant="ghost" 
                   size="sm"
                 >
-                  Clear
+                  Clear All
                 </Button>
               </div>
             </CardContent>
