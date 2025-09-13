@@ -9,12 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EarthGlobe from "./EarthGlobe";
+import OrbitControlPanel from "./OrbitControlPanel";
 
 interface SatelliteData {
   name: string;
   l1: string;
   l2: string;
   satrec: any;
+  orbitType?: 'LEO' | 'MEO' | 'GEO';
+  altKm?: number;
+}
+
+interface OrbitVisibility {
+  LEO: boolean;
+  MEO: boolean;
+  GEO: boolean;
 }
 
 interface TrackPoint {
@@ -51,6 +60,45 @@ const SatelliteDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [autoLoaded, setAutoLoaded] = useState(false);
+  const [orbitVisibility, setOrbitVisibility] = useState<OrbitVisibility>({
+    LEO: true,
+    MEO: true,
+    GEO: true
+  });
+
+  // Classify orbit type based on semi-major axis
+  function classifyOrbitType(satrec: any): { orbitType: 'LEO' | 'MEO' | 'GEO', altKm: number } {
+    // Get current position to estimate altitude
+    const now = new Date();
+    const positionAndVelocity = satellite.propagate(satrec, now);
+    
+    if (positionAndVelocity.position && typeof positionAndVelocity.position !== 'boolean') {
+      const gmst = satellite.gstime(now);
+      const positionEci = positionAndVelocity.position;
+      const positionGd = satellite.eciToGeodetic(positionEci, gmst);
+      const altKm = positionGd.height;
+      
+      if (altKm < 2000) {
+        return { orbitType: 'LEO', altKm };
+      } else if (altKm >= 2000 && altKm < 35000) {
+        return { orbitType: 'MEO', altKm };
+      } else {
+        return { orbitType: 'GEO', altKm };
+      }
+    }
+    
+    // Fallback based on mean motion (approximate)
+    const meanMotion = satrec.no; // rad/min
+    const period = (2 * Math.PI) / meanMotion; // minutes
+    
+    if (period < 200) { // ~LEO
+      return { orbitType: 'LEO', altKm: 500 };
+    } else if (period < 1200) { // ~MEO
+      return { orbitType: 'MEO', altKm: 20000 };
+    } else { // ~GEO
+      return { orbitType: 'GEO', altKm: 35786 };
+    }
+  }
 
   // Fetch satellites from Celestrak
   async function fetchSatellitesFromCelestrak() {
@@ -79,7 +127,8 @@ const SatelliteDashboard = () => {
       const parsed = satellites.slice(0, 50).map(s => {
         try {
           const satrec = satellite.twoline2satrec(s.l1, s.l2);
-          return { name: s.name, l1: s.l1, l2: s.l2, satrec };
+          const { orbitType, altKm } = classifyOrbitType(satrec);
+          return { name: s.name, l1: s.l1, l2: s.l2, satrec, orbitType, altKm };
         } catch (e) {
           return null;
         }
@@ -141,7 +190,8 @@ const SatelliteDashboard = () => {
     const parsed = sets.map(s => {
       try {
         const satrec = satellite.twoline2satrec(s.l1, s.l2);
-        return { ...s, satrec };
+        const { orbitType, altKm } = classifyOrbitType(satrec);
+        return { ...s, satrec, orbitType, altKm };
       } catch (e) {
         return null;
       }
@@ -276,21 +326,52 @@ const SatelliteDashboard = () => {
     setRunning(false);
   }
 
+  // Helper function to get orbit color
+  const getOrbitColor = (orbitType?: 'LEO' | 'MEO' | 'GEO') => {
+    switch (orbitType) {
+      case 'LEO': return '#22c55e'; // Green
+      case 'MEO': return '#3b82f6'; // Blue  
+      case 'GEO': return '#a855f7'; // Purple
+      default: return '#6b7280'; // Gray
+    }
+  };
+
+  // Filter satellites based on orbit visibility
+  const visibleSatellites = sats.filter(sat => 
+    sat.orbitType && orbitVisibility[sat.orbitType]
+  );
+
+  // Calculate orbit counts
+  const orbitCounts = {
+    LEO: sats.filter(s => s.orbitType === 'LEO').length,
+    MEO: sats.filter(s => s.orbitType === 'MEO').length,
+    GEO: sats.filter(s => s.orbitType === 'GEO').length
+  };
+
+  // Filter tracks based on visibility
+  const visibleTracks = tracks.filter(track => {
+    const sat = visibleSatellites.find(s => s.name === track.name);
+    return sat && sat.orbitType && orbitVisibility[sat.orbitType];
+  });
+
   // Build globe visualization data
   const pointsData: any[] = [];
   const arcsData: any[] = [];
 
-  // Add satellite tracks
-  tracks.forEach((trk, idx) => {
+  // Add satellite tracks (only visible ones)
+  visibleTracks.forEach((trk, idx) => {
+    const sat = visibleSatellites.find(s => s.name === trk.name);
+    const orbitColor = getOrbitColor(sat?.orbitType);
     trk.points.forEach((p, i) => {
       pointsData.push({ 
         id: `${idx}-${i}`, 
         lat: p.lat, 
         lng: p.lng, 
         size: 0.8, 
-        color: '#22c55e', 
+        color: orbitColor, 
         name: trk.name,
-        altKm: p.altKm 
+        altKm: p.altKm,
+        orbitType: sat?.orbitType
       });
     });
     
@@ -302,16 +383,16 @@ const SatelliteDashboard = () => {
         startLng: a.lng, 
         endLat: b.lat, 
         endLng: b.lng, 
-        color: [['#22c55e', 0.6], ['#3b82f6', 0.8]],
+        color: [[orbitColor, 0.6], [orbitColor, 0.8]],
         stroke: 1
       });
     }
   });
 
-  // Add close approach markers
+  // Add close approach markers (only for visible satellites)
   conjunctions.forEach((c, idx) => {
-    const satA = tracks.find(t => t.name === c.satA);
-    const satB = tracks.find(t => t.name === c.satB);
+    const satA = visibleTracks.find(t => t.name === c.satA);
+    const satB = visibleTracks.find(t => t.name === c.satB);
     
     if (satA && satB) {
       const i = c.sampleIndex;
@@ -482,6 +563,18 @@ const SatelliteDashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Orbit Control Panel */}
+          <OrbitControlPanel
+            orbitCounts={orbitCounts}
+            orbitVisibility={orbitVisibility}
+            onVisibilityChange={(orbitType, visible) => {
+              setOrbitVisibility(prev => ({
+                ...prev,
+                [orbitType]: visible
+              }));
+            }}
+          />
 
           {/* Status */}
           <Card>
