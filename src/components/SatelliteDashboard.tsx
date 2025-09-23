@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download } from "lucide-react";
+import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EarthGlobe from "./EarthGlobe";
 import OrbitControlPanel from "./OrbitControlPanel";
+import SpaceDebrisTracker from "./SpaceDebrisTracker";
+import MeteorTracker from "./MeteorTracker";
+import CollisionAnalyzer from "./CollisionAnalyzer";
 
 interface SatelliteData {
   name: string;
@@ -65,6 +68,12 @@ const SatelliteDashboard = () => {
     MEO: true,
     GEO: true
   });
+
+  // New state for debris and meteors
+  const [debris, setDebris] = useState<any[]>([]);
+  const [meteors, setMeteors] = useState<any[]>([]);
+  const [collisionRisks, setCollisionRisks] = useState<any[]>([]);
+  const [impactRisks, setImpactRisks] = useState<any[]>([]);
 
   // Classify orbit type based on semi-major axis
   function classifyOrbitType(satrec: any): { orbitType: 'LEO' | 'MEO' | 'GEO', altKm: number } {
@@ -364,7 +373,7 @@ const SatelliteDashboard = () => {
     const orbitColor = getOrbitColor(sat?.orbitType);
     trk.points.forEach((p, i) => {
       pointsData.push({ 
-        id: `${idx}-${i}`, 
+        id: `sat-${idx}-${i}`, 
         lat: p.lat, 
         lng: p.lng, 
         size: 0.8, 
@@ -387,6 +396,69 @@ const SatelliteDashboard = () => {
         stroke: 1
       });
     }
+  });
+
+  // Add space debris visualization
+  debris.forEach((debrisItem, idx) => {
+    try {
+      const now = new Date();
+      const positionAndVelocity = satellite.propagate(debrisItem.satrec, now);
+      
+      if (positionAndVelocity.position && typeof positionAndVelocity.position !== 'boolean') {
+        const gmst = satellite.gstime(now);
+        const positionEci = positionAndVelocity.position;
+        const positionGd = satellite.eciToGeodetic(positionEci, gmst);
+        const lat = satellite.degreesLat(positionGd.latitude);
+        const lng = satellite.degreesLong(positionGd.longitude);
+        const altKm = positionGd.height;
+        
+        let debrisColor = '#6b7280'; // Default gray
+        switch (debrisItem.category) {
+          case 'FENGYUN': debrisColor = '#eab308'; break; // Yellow
+          case 'COSMOS': debrisColor = '#ef4444'; break; // Red
+          case 'IRIDIUM': debrisColor = '#3b82f6'; break; // Blue
+        }
+        
+        pointsData.push({
+          id: `debris-${idx}`,
+          lat,
+          lng,
+          size: 0.5,
+          color: debrisColor,
+          name: `${debrisItem.name} (Debris)`,
+          altKm
+        });
+      }
+    } catch (e) {
+      // Skip invalid debris
+    }
+  });
+
+  // Add meteor visualization (simplified position estimation)
+  meteors.forEach((meteor, idx) => {
+    // Simplified meteor visualization - place them at Earth's edge approaching
+    const approachDate = new Date(meteor.close_approach_date);
+    const now = new Date();
+    const timeRatio = Math.max(0, Math.min(1, (approachDate.getTime() - now.getTime()) / (30 * 24 * 60 * 60 * 1000))); // 30 days max
+    
+    // Random position around Earth for demonstration
+    const lat = (Math.random() - 0.5) * 180;
+    const lng = (Math.random() - 0.5) * 360;
+    const altKm = 500 + timeRatio * meteor.miss_distance * 149597871 * 0.001; // Simplified altitude
+    
+    let meteorColor = '#10b981'; // Green for safe
+    if (meteor.hazardous) meteorColor = '#ef4444'; // Red for hazardous
+    else if (meteor.impact_probability > 0.1) meteorColor = '#f59e0b'; // Yellow for risky
+    
+    pointsData.push({
+      id: `meteor-${idx}`,
+      lat,
+      lng,
+      size: Math.min(2, meteor.diameter_min * 10), // Scale size
+      color: meteorColor,
+      name: `${meteor.name} (NEO)`,
+      altKm
+    });
   });
 
   // Add close approach markers (only for visible satellites)
@@ -576,6 +648,28 @@ const SatelliteDashboard = () => {
             }}
           />
 
+          {/* Space Debris & Meteor Tracking */}
+          <SpaceDebrisTracker 
+            satellites={sats}
+            onDebrisUpdate={setDebris}
+            onCollisionRisks={setCollisionRisks}
+          />
+          
+          <MeteorTracker 
+            satellites={sats}
+            onMeteorUpdate={setMeteors}
+            onImpactRisks={setImpactRisks}
+          />
+
+          {/* Collision Analysis */}
+          <CollisionAnalyzer
+            satellites={sats}
+            debris={debris}
+            meteors={meteors}
+            collisionRisks={collisionRisks}
+            impactRisks={impactRisks}
+          />
+
           {/* Status */}
           <Card>
             <CardHeader>
@@ -598,6 +692,26 @@ const SatelliteDashboard = () => {
                   <span>Conjunctions:</span>
                   <Badge variant={conjunctions.length > 0 ? "destructive" : "outline"}>
                     {conjunctions.length}
+                  </Badge>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Space Debris:</span>
+                  <Badge variant="outline">{debris.length}</Badge>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Near-Earth Objects:</span>
+                  <Badge variant="outline">{meteors.length}</Badge>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Collision Risks:</span>
+                  <Badge variant={collisionRisks.length > 0 ? "destructive" : "outline"}>
+                    {collisionRisks.length}
+                  </Badge>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Impact Risks:</span>
+                  <Badge variant={impactRisks.length > 0 ? "destructive" : "outline"}>
+                    {impactRisks.length}
                   </Badge>
                 </div>
               </div>
@@ -689,11 +803,19 @@ const SatelliteDashboard = () => {
             <div>🔍 Scroll to zoom</div>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-2 h-2 bg-accent rounded-full"></div>
-              <span>Satellite tracks</span>
+              <span>Satellites</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-destructive rounded-full"></div>
               <span>Close approaches</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span>Space debris</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Near-Earth objects</span>
             </div>
           </div>
         </div>
