@@ -13,6 +13,7 @@ import OrbitControlPanel from "./OrbitControlPanel";
 import SpaceDebrisTracker from "./SpaceDebrisTracker";
 import MeteorTracker from "./MeteorTracker";
 import CollisionAnalyzer from "./CollisionAnalyzer";
+import { SpaceAIChat } from "./SpaceAIChat";
 
 interface SatelliteData {
   name: string;
@@ -820,6 +821,14 @@ const SatelliteDashboard = () => {
           </div>
         </div>
       </div>
+      
+      <SpaceAIChat
+        satelliteData={sats}
+        debrisData={debris}
+        meteorData={meteors}
+        collisionRisks={collisionRisks}
+        conjunctions={conjunctions}
+      />
     </div>
   );
 };
