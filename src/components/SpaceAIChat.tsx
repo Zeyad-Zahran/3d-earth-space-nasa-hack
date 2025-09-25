@@ -32,7 +32,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
     {
       id: '1',
       role: 'assistant',
-      content: 'مرحباً! أنا مساعد الذكي للفضاء. يمكنني تحليل وشرح جميع بيانات الأقمار الصناعية والمخلفات الفضائية والنيازك. كيف يمكنني مساعدتك؟',
+      content: 'Hello! I\'m your Space Intelligence Assistant. I can analyze and explain all satellite data, space debris, and meteor information. How can I help you today?',
       timestamp: new Date()
     }
   ]);
@@ -108,7 +108,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'عذراً، حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.',
+        content: 'Sorry, there was a connection error. Please try again.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -148,7 +148,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
                 <Bot className="h-5 w-5 text-blue-400" />
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
               </div>
-              مساعد الفضاء الذكي
+              Space AI Assistant
             </CardTitle>
             <Button
               variant="ghost"
@@ -188,7 +188,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
                       {message.content}
                     </p>
                     <p className="text-xs opacity-70 mt-1">
-                      {message.timestamp.toLocaleTimeString('ar-SA', {
+                      {message.timestamp.toLocaleTimeString('en-US', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -211,7 +211,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
                   <div className="bg-slate-700/80 text-slate-100 border border-slate-600 px-4 py-2 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">جاري التحليل...</span>
+                      <span className="text-sm">Analyzing...</span>
                     </div>
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="اسأل عن البيانات الفضائية..."
+                placeholder="Ask about space data..."
                 className="flex-1 bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
                 disabled={isLoading}
               />
@@ -244,10 +244,10 @@ export const SpaceAIChat: React.FC<SpaceAIChatProps> = ({
             
             <div className="mt-2 flex flex-wrap gap-2">
               {[
-                'شرح بيانات الأقمار الصناعية',
-                'تحليل المخاطر',
-                'معلومات عن النيازك',
-                'حالة المخلفات الفضائية'
+                'Explain satellite data',
+                'Risk analysis',
+                'Meteor information',
+                'Space debris status'
               ].map((suggestion) => (
                 <Button
                   key={suggestion}

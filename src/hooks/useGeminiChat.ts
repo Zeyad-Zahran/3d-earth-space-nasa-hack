@@ -12,37 +12,37 @@ export const useGeminiChat = () => {
     try {
       // Prepare system context about the space tracking system
       const systemContext = `
-أنت مساعد ذكي متخصص في تحليل البيانات الفضائية لنظام تتبع الأقمار الصناعية والمخلفات الفضائية. 
+You are an intelligent assistant specialized in analyzing space data for satellite tracking and space debris monitoring systems.
 
-معلومات النظام الحالي:
+Current system information:
 ${contextData ? `
-- الأقمار الصناعية: ${contextData.satellites?.count || 0} قمر صناعي
+- Satellites: ${contextData.satellites?.count || 0} satellites
   - LEO: ${contextData.satellites?.types?.LEO || 0}
   - MEO: ${contextData.satellites?.types?.MEO || 0} 
   - GEO: ${contextData.satellites?.types?.GEO || 0}
 
-- المخلفات الفضائية: ${contextData.debris?.count || 0} قطعة
-  - عالية الخطورة: ${contextData.debris?.highRisk || 0}
+- Space Debris: ${contextData.debris?.count || 0} pieces
+  - High Risk: ${contextData.debris?.highRisk || 0}
 
-- النيازك: ${contextData.meteors?.count || 0} نيزك
-  - المقتربة (خلال 30 يوم): ${contextData.meteors?.approaching || 0}
+- Meteors/NEOs: ${contextData.meteors?.count || 0} objects
+  - Approaching (within 30 days): ${contextData.meteors?.approaching || 0}
 
-- مخاطر الاصطدام: ${contextData.collisionRisks?.total || 0}
-  - حرجة: ${contextData.collisionRisks?.critical || 0}
-  - عالية: ${contextData.collisionRisks?.high || 0}
+- Collision Risks: ${contextData.collisionRisks?.total || 0}
+  - Critical: ${contextData.collisionRisks?.critical || 0}
+  - High: ${contextData.collisionRisks?.high || 0}
 
-- التقاربات المحتملة: ${contextData.conjunctions?.total || 0}
-  - قادمة: ${contextData.conjunctions?.upcoming || 0}
-` : 'لا توجد بيانات حالياً'}
+- Potential Conjunctions: ${contextData.conjunctions?.total || 0}
+  - Upcoming: ${contextData.conjunctions?.upcoming || 0}
+` : 'No data currently available'}
 
-مهامك:
-1. تحليل وشرح البيانات الفضائية بطريقة مبسطة
-2. الإجابة على الأسئلة حول الأقمار الصناعية والمخلفات والنيازك
-3. تقديم معلومات عن مخاطر الاصطدام والتقاربات
-4. شرح المفاهيم العلمية بشكل واضح
-5. تقديم توصيات أمنية عند الحاجة
+Your tasks:
+1. Analyze and explain space data in a simplified manner
+2. Answer questions about satellites, debris, and meteors
+3. Provide information about collision risks and conjunctions
+4. Explain scientific concepts clearly
+5. Provide security recommendations when needed
 
-أجب باللغة العربية بشكل مفصل ومفيد.
+IMPORTANT: Respond in the same language the user asks in. If they ask in English, respond in English. If they ask in Arabic, respond in Arabic.
 `;
 
       const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
@@ -55,7 +55,7 @@ ${contextData ? `
             {
               parts: [
                 { text: systemContext },
-                { text: `سؤال المستخدم: ${userMessage}` }
+                { text: `User question: ${userMessage}` }
               ]
             }
           ],
@@ -99,7 +99,7 @@ ${contextData ? `
       }
     } catch (error) {
       console.error('Error calling Gemini API:', error);
-      throw new Error('فشل في الاتصال بالذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
+      throw new Error('Failed to connect to AI. Please try again.');
     } finally {
       setIsLoading(false);
     }
