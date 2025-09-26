@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download, Shield } from "lucide-react";
+import { AlertTriangle, Satellite, Globe as GlobeIcon, Activity, Clock, MapPin, RefreshCw, Download, Shield, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 import EarthGlobe from "./EarthGlobe";
 import OrbitControlPanel from "./OrbitControlPanel";
 import SpaceDebrisTracker from "./SpaceDebrisTracker";
@@ -518,14 +519,22 @@ const SatelliteDashboard = () => {
       <div className="lg:w-96 w-full bg-card/90 backdrop-blur-sm border-r border-border p-6 overflow-auto shadow-shadow-deep">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-lg">
-              <Satellite className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/20 rounded-lg">
+                <Satellite className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">SpaceTrack Dashboard</h1>
+                <p className="text-sm text-muted-foreground">Satellite Tracking & Conjunction Analysis</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">SpaceTrack Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Satellite Tracking & Conjunction Analysis</p>
-            </div>
+            <Link to="/mobile">
+              <Button variant="outline" size="sm" className="flex items-center gap-2 lg:hidden xl:flex">
+                <Smartphone className="w-4 h-4" />
+                <span className="hidden sm:inline">Mobile View</span>
+              </Button>
+            </Link>
           </div>
 
           {/* Satellite Data Source */}
