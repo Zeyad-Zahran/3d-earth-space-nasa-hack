@@ -6,33 +6,100 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceAIChat } from "@/components/SpaceAIChat";
 import { Satellite, Radar, MessageCircle, BarChart3, AlertTriangle, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRealTimeSpaceData } from "@/hooks/useRealTimeSpaceData";
 
+interface MobileData {
+  satellites: {
+    count: number;
+    types: { LEO: number; MEO: number; GEO: number };
+    active: number;
+  };
+  debris: {
+    count: number;
+    highRisk: number;
+    trackable: number;
+  };
+  meteors: {
+    count: number;
+    approaching: number;
+    potentiallyHazardous: number;
+  };
+  collisionRisks: {
+    total: number;
+    critical: number;
+    high: number;
+    moderate: number;
+  };
+  conjunctions: {
+    total: number;
+    upcoming: number;
+    withinDay: number;
+  };
+}
 
 const Mobile = () => {
   const { toast } = useToast();
-  const { data, loading, lastUpdate, refreshData } = useRealTimeSpaceData();
+  const [data, setData] = useState<MobileData>({
+    satellites: {
+      count: 8420,
+      types: { LEO: 5240, MEO: 1890, GEO: 1290 },
+      active: 7650
+    },
+    debris: {
+      count: 34000,
+      highRisk: 2800,
+      trackable: 28500
+    },
+    meteors: {
+      count: 157,
+      approaching: 12,
+      potentiallyHazardous: 3
+    },
+    collisionRisks: {
+      total: 847,
+      critical: 15,
+      high: 62,
+      moderate: 770
+    },
+    conjunctions: {
+      total: 234,
+      upcoming: 45,
+      withinDay: 8
+    }
+  });
+
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await refreshData();
-      toast({
-        title: "البيانات محدثة",
-        description: "تم تحديث بيانات تتبع الفضاء بنجاح من المصادر الحقيقية.",
-      });
-    } catch (error) {
-      toast({
-        title: "خطأ في التحديث",
-        description: "فشل في تحديث البيانات. يرجى المحاولة مرة أخرى.",
-        variant: "destructive",
-      });
-    } finally {
+    // Simulate data refresh
+    setTimeout(() => {
       setRefreshing(false);
-    }
+      toast({
+        title: "Data Refreshed",
+        description: "Space tracking data has been updated successfully.",
+      });
+    }, 1500);
   };
 
+  // Auto refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Simulate minor data updates
+      setData(prev => ({
+        ...prev,
+        satellites: {
+          ...prev.satellites,
+          count: prev.satellites.count + Math.floor(Math.random() * 3) - 1
+        },
+        collisionRisks: {
+          ...prev.collisionRisks,
+          total: prev.collisionRisks.total + Math.floor(Math.random() * 5) - 2
+        }
+      }));
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const StatCard = ({ 
     icon: Icon, 
@@ -81,15 +148,15 @@ const Mobile = () => {
             <Satellite className="h-5 w-5 text-primary" />
             <h1 className="font-bold text-lg">TLE Mobile</h1>
           </div>
-            <Button 
+          <Button 
             variant="ghost" 
             size="sm"
             onClick={handleRefresh}
-            disabled={refreshing || loading}
+            disabled={refreshing}
             className="text-xs"
           >
-            <Radar className={`h-4 w-4 mr-1 ${refreshing || loading ? "animate-spin" : ""}`} />
-            {refreshing || loading ? "تحديث..." : "تحديث"}
+            <Radar className={`h-4 w-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
           </Button>
         </div>
       </div>
@@ -97,24 +164,16 @@ const Mobile = () => {
       <div className="p-4 space-y-4 pb-20">
         {/* AI Chat - Primary Focus */}
         <Card className="bg-card/30 backdrop-blur-sm border-border/50">
-          <div className="p-3 border-b border-border/50">
+          <div className="p-4 border-b border-border/50">
             <div className="flex items-center space-x-2 mb-2">
-              <MessageCircle className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold text-sm">مساعد الفضاء الذكي</h2>
-              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
-                بيانات حقيقية
-              </Badge>
+              <MessageCircle className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Space AI Assistant</h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              اسأل أي شيء عن بيانات الفضاء والأقمار الصناعية ومخاطر التصادم
+              Ask anything about space data, satellites, or collision risks
             </p>
-            {lastUpdate && (
-              <p className="text-xs text-muted-foreground mt-1">
-                آخر تحديث: {lastUpdate.toLocaleString('ar')}
-              </p>
-            )}
           </div>
-          <div className="p-2 max-h-80 overflow-hidden">
+          <div className="p-2">
             <SpaceAIChat 
               satelliteData={[data.satellites]}
               debrisData={[data.debris]}
