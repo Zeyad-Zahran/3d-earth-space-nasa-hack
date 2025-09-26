@@ -15,7 +15,6 @@ import SpaceDebrisTracker from "./SpaceDebrisTracker";
 import MeteorTracker from "./MeteorTracker";
 import CollisionAnalyzer from "./CollisionAnalyzer";
 import { SpaceAIChat } from "./SpaceAIChat";
-
 interface SatelliteData {
   name: string;
   l1: string;
@@ -24,25 +23,21 @@ interface SatelliteData {
   orbitType?: 'LEO' | 'MEO' | 'GEO';
   altKm?: number;
 }
-
 interface OrbitVisibility {
   LEO: boolean;
   MEO: boolean;
   GEO: boolean;
 }
-
 interface TrackPoint {
   lat: number;
   lng: number;
   altKm: number;
   t: Date;
 }
-
 interface SatelliteTrack {
   name: string;
   points: TrackPoint[];
 }
-
 interface Conjunction {
   satA: string;
   satB: string;
@@ -50,10 +45,10 @@ interface Conjunction {
   tca: Date;
   sampleIndex: number;
 }
-
 const SatelliteDashboard = () => {
-  const { toast } = useToast();
-  
+  const {
+    toast
+  } = useToast();
   const [tleText, setTleText] = useState('');
   const [sats, setSats] = useState<SatelliteData[]>([]);
   const [tracks, setTracks] = useState<SatelliteTrack[]>([]);
@@ -78,36 +73,58 @@ const SatelliteDashboard = () => {
   const [impactRisks, setImpactRisks] = useState<any[]>([]);
 
   // Classify orbit type based on semi-major axis
-  function classifyOrbitType(satrec: any): { orbitType: 'LEO' | 'MEO' | 'GEO', altKm: number } {
+  function classifyOrbitType(satrec: any): {
+    orbitType: 'LEO' | 'MEO' | 'GEO';
+    altKm: number;
+  } {
     // Get current position to estimate altitude
     const now = new Date();
     const positionAndVelocity = satellite.propagate(satrec, now);
-    
     if (positionAndVelocity.position && typeof positionAndVelocity.position !== 'boolean') {
       const gmst = satellite.gstime(now);
       const positionEci = positionAndVelocity.position;
       const positionGd = satellite.eciToGeodetic(positionEci, gmst);
       const altKm = positionGd.height;
-      
       if (altKm < 2000) {
-        return { orbitType: 'LEO', altKm };
+        return {
+          orbitType: 'LEO',
+          altKm
+        };
       } else if (altKm >= 2000 && altKm < 35000) {
-        return { orbitType: 'MEO', altKm };
+        return {
+          orbitType: 'MEO',
+          altKm
+        };
       } else {
-        return { orbitType: 'GEO', altKm };
+        return {
+          orbitType: 'GEO',
+          altKm
+        };
       }
     }
-    
+
     // Fallback based on mean motion (approximate)
     const meanMotion = satrec.no; // rad/min
-    const period = (2 * Math.PI) / meanMotion; // minutes
-    
-    if (period < 200) { // ~LEO
-      return { orbitType: 'LEO', altKm: 500 };
-    } else if (period < 1200) { // ~MEO
-      return { orbitType: 'MEO', altKm: 20000 };
-    } else { // ~GEO
-      return { orbitType: 'GEO', altKm: 35786 };
+    const period = 2 * Math.PI / meanMotion; // minutes
+
+    if (period < 200) {
+      // ~LEO
+      return {
+        orbitType: 'LEO',
+        altKm: 500
+      };
+    } else if (period < 1200) {
+      // ~MEO
+      return {
+        orbitType: 'MEO',
+        altKm: 20000
+      };
+    } else {
+      // ~GEO
+      return {
+        orbitType: 'GEO',
+        altKm: 35786
+      };
     }
   }
 
@@ -120,7 +137,7 @@ const SatelliteDashboard = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const text = await response.text();
-      
+
       // Parse Celestrak format: every 3 lines = one satellite (name + 2 TLE lines)
       const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
       const satellites = [];
@@ -133,39 +150,46 @@ const SatelliteDashboard = () => {
           });
         }
       }
-      
+
       // Convert to satellite records and limit to first 50 for performance
       const parsed = satellites.slice(0, 50).map(s => {
         try {
           const satrec = satellite.twoline2satrec(s.l1, s.l2);
-          const { orbitType, altKm } = classifyOrbitType(satrec);
-          return { name: s.name, l1: s.l1, l2: s.l2, satrec, orbitType, altKm };
+          const {
+            orbitType,
+            altKm
+          } = classifyOrbitType(satrec);
+          return {
+            name: s.name,
+            l1: s.l1,
+            l2: s.l2,
+            satrec,
+            orbitType,
+            altKm
+          };
         } catch (e) {
           return null;
         }
       }).filter(Boolean) as SatelliteData[];
-      
       setSats(parsed);
       setTleText(satellites.slice(0, 50).map(s => `${s.name}\n${s.l1}\n${s.l2}`).join('\n\n'));
       setConjunctions([]);
       setTracks([]);
       setAlerts([]);
       setAutoLoaded(true);
-      
       toast({
         title: "Satellites Loaded",
-        description: `Successfully loaded ${parsed.length} satellites from Celestrak`,
+        description: `Successfully loaded ${parsed.length} satellites from Celestrak`
       });
-      
+
       // Auto-run analysis after loading
       setTimeout(() => computeTracksAndConjunctions(), 500);
-      
     } catch (error) {
       console.error('Error fetching satellites:', error);
       toast({
         title: "Error Loading Satellites",
         description: "Failed to fetch satellite data from Celestrak. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -175,47 +199,62 @@ const SatelliteDashboard = () => {
   // Parse TLE input into sets (for manual input)
   function parseTLEs(text: string) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const sets: { name: string; l1: string; l2: string }[] = [];
-    
+    const sets: {
+      name: string;
+      l1: string;
+      l2: string;
+    }[] = [];
     for (let i = 0; i < lines.length;) {
       if ((lines[i].startsWith('1 ') || lines[i].startsWith('2 ')) && i + 1 < lines.length) {
-        if (lines[i].startsWith('1 ') && lines[i+1].startsWith('2 ')) {
-          sets.push({ name: 'Unknown Satellite', l1: lines[i], l2: lines[i+1] });
-          i += 2; 
+        if (lines[i].startsWith('1 ') && lines[i + 1].startsWith('2 ')) {
+          sets.push({
+            name: 'Unknown Satellite',
+            l1: lines[i],
+            l2: lines[i + 1]
+          });
+          i += 2;
           continue;
         }
       }
-      
-      if (i + 2 < lines.length && lines[i+1].startsWith('1 ') && lines[i+2].startsWith('2 ')) {
-        sets.push({ name: lines[i], l1: lines[i+1], l2: lines[i+2] });
-        i += 3; 
+      if (i + 2 < lines.length && lines[i + 1].startsWith('1 ') && lines[i + 2].startsWith('2 ')) {
+        sets.push({
+          name: lines[i],
+          l1: lines[i + 1],
+          l2: lines[i + 2]
+        });
+        i += 3;
         continue;
       }
       i += 1;
     }
     return sets;
   }
-
   function loadTLEs() {
     const sets = parseTLEs(tleText);
     const parsed = sets.map(s => {
       try {
         const satrec = satellite.twoline2satrec(s.l1, s.l2);
-        const { orbitType, altKm } = classifyOrbitType(satrec);
-        return { ...s, satrec, orbitType, altKm };
+        const {
+          orbitType,
+          altKm
+        } = classifyOrbitType(satrec);
+        return {
+          ...s,
+          satrec,
+          orbitType,
+          altKm
+        };
       } catch (e) {
         return null;
       }
     }).filter(Boolean) as SatelliteData[];
-    
     setSats(parsed);
     setConjunctions([]);
     setTracks([]);
     setAlerts([]);
-    
     toast({
       title: "TLEs Loaded",
-      description: `Successfully loaded ${parsed.length} satellites`,
+      description: `Successfully loaded ${parsed.length} satellites`
     });
   }
 
@@ -225,8 +264,8 @@ const SatelliteDashboard = () => {
       const res = satellite.propagate(satrec, when);
       if (!res.position || typeof res.position === 'boolean') return null;
       return [res.position.x, res.position.y, res.position.z];
-    } catch (e) { 
-      return null; 
+    } catch (e) {
+      return null;
     }
   }
 
@@ -236,33 +275,36 @@ const SatelliteDashboard = () => {
       toast({
         title: "No Satellites",
         description: "Please load TLE data first",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-    
     setRunning(true);
     const now = new Date();
     const end = new Date(now.getTime() + windowMinutes * 60 * 1000);
     const samples = [];
-    
     for (let t = now.getTime(); t <= end.getTime(); t += sampleSec * 1000) {
       samples.push(new Date(t));
     }
 
     // Compute per-satellite ECI vectors per sample
-    const satSamples = sats.map(s => ({ 
-      name: s.name, 
-      satrec: s.satrec, 
-      positions: [] as { t: Date; eci: number[] }[] 
+    const satSamples = sats.map(s => ({
+      name: s.name,
+      satrec: s.satrec,
+      positions: [] as {
+        t: Date;
+        eci: number[];
+      }[]
     }));
-
     for (let si = 0; si < satSamples.length; si++) {
       const s = satSamples[si];
       for (let ti = 0; ti < samples.length; ti++) {
         const when = samples[ti];
         const eci = propagateEci(s.satrec, when);
-        if (eci) s.positions.push({ t: when, eci });
+        if (eci) s.positions.push({
+          t: when,
+          eci
+        });
       }
     }
 
@@ -270,22 +312,25 @@ const SatelliteDashboard = () => {
     const conjCandidates: Conjunction[] = [];
     for (let i = 0; i < satSamples.length; i++) {
       for (let j = i + 1; j < satSamples.length; j++) {
-        let minD = Infinity, minTime: Date | null = null, minIdx = -1;
+        let minD = Infinity,
+          minTime: Date | null = null,
+          minIdx = -1;
         const A = satSamples[i].positions;
         const B = satSamples[j].positions;
         const L = Math.min(A.length, B.length);
-        
         for (let k = 0; k < L; k++) {
-          const a = A[k].eci, b = B[k].eci;
-          const dx = a[0]-b[0], dy = a[1]-b[1], dz = a[2]-b[2];
-          const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-          if (d < minD) { 
-            minD = d; 
-            minTime = A[k].t; 
-            minIdx = k; 
+          const a = A[k].eci,
+            b = B[k].eci;
+          const dx = a[0] - b[0],
+            dy = a[1] - b[1],
+            dz = a[2] - b[2];
+          const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (d < minD) {
+            minD = d;
+            minTime = A[k].t;
+            minIdx = k;
           }
         }
-        
         if (minD < thresholdKm && minTime) {
           conjCandidates.push({
             satA: sats[i].name || `SAT${i}`,
@@ -301,56 +346,68 @@ const SatelliteDashboard = () => {
     // Build tracks in lat/lng/alt for globe
     const tracksForGlobe = satSamples.map(s => {
       const points = s.positions.map(p => {
-        const posEci = { x: p.eci[0], y: p.eci[1], z: p.eci[2] };
+        const posEci = {
+          x: p.eci[0],
+          y: p.eci[1],
+          z: p.eci[2]
+        };
         const gmst = satellite.gstime(p.t);
         const geo = satellite.eciToGeodetic(posEci, gmst);
         const lat = satellite.degreesLat(geo.latitude);
         const lon = satellite.degreesLong(geo.longitude);
         const altKm = geo.height;
-        return { lat, lng: lon, altKm, t: p.t };
+        return {
+          lat,
+          lng: lon,
+          altKm,
+          t: p.t
+        };
       });
-      return { name: s.name, points };
+      return {
+        name: s.name,
+        points
+      };
     });
-
     setTracks(tracksForGlobe);
     setConjunctions(conjCandidates);
-    
     if (conjCandidates.length > 0) {
-      const alertMessages = conjCandidates.map(c => 
-        `⚠️ Close approach: ${c.satA} & ${c.satB} - ${c.miss_km.toFixed(2)} km at ${c.tca.toLocaleString()}`
-      );
+      const alertMessages = conjCandidates.map(c => `⚠️ Close approach: ${c.satA} & ${c.satB} - ${c.miss_km.toFixed(2)} km at ${c.tca.toLocaleString()}`);
       setAlerts(alertMessages);
-      
       toast({
         title: "Conjunction Alert!",
         description: `Found ${conjCandidates.length} potential close approaches`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } else {
       setAlerts(['✅ No close approaches detected within threshold']);
       toast({
         title: "Analysis Complete",
-        description: "No conjunction threats detected",
+        description: "No conjunction threats detected"
       });
     }
-    
     setRunning(false);
   }
 
   // Helper function to get orbit color
   const getOrbitColor = (orbitType?: 'LEO' | 'MEO' | 'GEO') => {
     switch (orbitType) {
-      case 'LEO': return '#22c55e'; // Green
-      case 'MEO': return '#3b82f6'; // Blue  
-      case 'GEO': return '#a855f7'; // Purple
-      default: return '#6b7280'; // Gray
+      case 'LEO':
+        return '#22c55e';
+      // Green
+      case 'MEO':
+        return '#3b82f6';
+      // Blue  
+      case 'GEO':
+        return '#a855f7';
+      // Purple
+      default:
+        return '#6b7280';
+      // Gray
     }
   };
 
   // Filter satellites based on orbit visibility
-  const visibleSatellites = sats.filter(sat => 
-    sat.orbitType && orbitVisibility[sat.orbitType]
-  );
+  const visibleSatellites = sats.filter(sat => sat.orbitType && orbitVisibility[sat.orbitType]);
 
   // Calculate orbit counts
   const orbitCounts = {
@@ -374,26 +431,27 @@ const SatelliteDashboard = () => {
     const sat = visibleSatellites.find(s => s.name === trk.name);
     const orbitColor = getOrbitColor(sat?.orbitType);
     trk.points.forEach((p, i) => {
-      pointsData.push({ 
-        id: `sat-${idx}-${i}`, 
-        lat: p.lat, 
-        lng: p.lng, 
-        size: 0.8, 
-        color: orbitColor, 
+      pointsData.push({
+        id: `sat-${idx}-${i}`,
+        lat: p.lat,
+        lng: p.lng,
+        size: 0.8,
+        color: orbitColor,
         name: trk.name,
         altKm: p.altKm,
         orbitType: sat?.orbitType
       });
     });
-    
+
     // Create orbital track arcs
     for (let i = 0; i < Math.max(0, trk.points.length - 1); i++) {
-      const a = trk.points[i], b = trk.points[i+1];
-      arcsData.push({ 
-        startLat: a.lat, 
-        startLng: a.lng, 
-        endLat: b.lat, 
-        endLng: b.lng, 
+      const a = trk.points[i],
+        b = trk.points[i + 1];
+      arcsData.push({
+        startLat: a.lat,
+        startLng: a.lng,
+        endLat: b.lat,
+        endLng: b.lng,
         color: [[orbitColor, 0.6], [orbitColor, 0.8]],
         stroke: 1
       });
@@ -405,7 +463,6 @@ const SatelliteDashboard = () => {
     try {
       const now = new Date();
       const positionAndVelocity = satellite.propagate(debrisItem.satrec, now);
-      
       if (positionAndVelocity.position && typeof positionAndVelocity.position !== 'boolean') {
         const gmst = satellite.gstime(now);
         const positionEci = positionAndVelocity.position;
@@ -413,14 +470,21 @@ const SatelliteDashboard = () => {
         const lat = satellite.degreesLat(positionGd.latitude);
         const lng = satellite.degreesLong(positionGd.longitude);
         const altKm = positionGd.height;
-        
         let debrisColor = '#6b7280'; // Default gray
         switch (debrisItem.category) {
-          case 'FENGYUN': debrisColor = '#eab308'; break; // Yellow
-          case 'COSMOS': debrisColor = '#ef4444'; break; // Red
-          case 'IRIDIUM': debrisColor = '#3b82f6'; break; // Blue
+          case 'FENGYUN':
+            debrisColor = '#eab308';
+            break;
+          // Yellow
+          case 'COSMOS':
+            debrisColor = '#ef4444';
+            break;
+          // Red
+          case 'IRIDIUM':
+            debrisColor = '#3b82f6';
+            break;
+          // Blue
         }
-        
         pointsData.push({
           id: `debris-${idx}`,
           lat,
@@ -442,21 +506,22 @@ const SatelliteDashboard = () => {
     const approachDate = new Date(meteor.close_approach_date);
     const now = new Date();
     const timeRatio = Math.max(0, Math.min(1, (approachDate.getTime() - now.getTime()) / (30 * 24 * 60 * 60 * 1000))); // 30 days max
-    
+
     // Random position around Earth for demonstration
     const lat = (Math.random() - 0.5) * 180;
     const lng = (Math.random() - 0.5) * 360;
     const altKm = 500 + timeRatio * meteor.miss_distance * 149597871 * 0.001; // Simplified altitude
-    
+
     let meteorColor = '#10b981'; // Green for safe
     if (meteor.hazardous) meteorColor = '#ef4444'; // Red for hazardous
     else if (meteor.impact_probability > 0.1) meteorColor = '#f59e0b'; // Yellow for risky
-    
+
     pointsData.push({
       id: `meteor-${idx}`,
       lat,
       lng,
-      size: Math.min(2, meteor.diameter_min * 10), // Scale size
+      size: Math.min(2, meteor.diameter_min * 10),
+      // Scale size
       color: meteorColor,
       name: `${meteor.name} (NEO)`,
       altKm
@@ -467,54 +532,47 @@ const SatelliteDashboard = () => {
   conjunctions.forEach((c, idx) => {
     const satA = visibleTracks.find(t => t.name === c.satA);
     const satB = visibleTracks.find(t => t.name === c.satB);
-    
     if (satA && satB) {
       const i = c.sampleIndex;
       const pa = satA.points[i];
       const pb = satB.points[i];
-      
-      if (pa) pointsData.push({ 
-        id: `caA-${idx}`, 
-        lat: pa.lat, 
-        lng: pa.lng, 
-        size: 3, 
-        color: '#ef4444', 
+      if (pa) pointsData.push({
+        id: `caA-${idx}`,
+        lat: pa.lat,
+        lng: pa.lng,
+        size: 3,
+        color: '#ef4444',
         name: `${c.satA} @ TCA`,
-        altKm: pa.altKm 
+        altKm: pa.altKm
       });
-      
-      if (pb) pointsData.push({ 
-        id: `caB-${idx}`, 
-        lat: pb.lat, 
-        lng: pb.lng, 
-        size: 3, 
-        color: '#f97316', 
+      if (pb) pointsData.push({
+        id: `caB-${idx}`,
+        lat: pb.lat,
+        lng: pb.lng,
+        size: 3,
+        color: '#f97316',
         name: `${c.satB} @ TCA`,
-        altKm: pb.altKm 
+        altKm: pb.altKm
       });
-      
       if (pa && pb) {
-        arcsData.push({ 
-          startLat: pa.lat, 
-          startLng: pa.lng, 
-          endLat: pb.lat, 
-          endLng: pb.lng, 
-          color: [['#ef4444', 1], ['#f97316', 1]], 
-          stroke: 3 
+        arcsData.push({
+          startLat: pa.lat,
+          startLng: pa.lng,
+          endLat: pb.lat,
+          endLng: pb.lng,
+          color: [['#ef4444', 1], ['#f97316', 1]],
+          stroke: 3
         });
       }
     }
   });
-
   useEffect(() => {
     // Auto-load satellites from Celestrak on component mount
     if (!autoLoaded) {
       fetchSatellitesFromCelestrak();
     }
   }, [autoLoaded]);
-
-  return (
-    <div className="h-screen flex flex-col lg:flex-row bg-gradient-space">
+  return <div className="h-screen flex flex-col lg:flex-row bg-gradient-space">
       {/* Control Panel */}
       <div className="lg:w-96 w-full bg-card/90 backdrop-blur-sm border-r border-border p-6 overflow-auto shadow-shadow-deep">
         <div className="space-y-6">
@@ -530,10 +588,7 @@ const SatelliteDashboard = () => {
               </div>
             </div>
             <Link to="/mobile">
-              <Button variant="outline" size="sm" className="flex items-center gap-2 lg:hidden xl:flex">
-                <Smartphone className="w-4 h-4" />
-                <span className="hidden sm:inline">Mobile View</span>
-              </Button>
+              
             </Link>
           </div>
 
@@ -547,22 +602,11 @@ const SatelliteDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
-                <Button 
-                  onClick={fetchSatellitesFromCelestrak} 
-                  variant="orbital" 
-                  size="sm"
-                  disabled={loading}
-                  className="flex items-center gap-2"
-                >
+                <Button onClick={fetchSatellitesFromCelestrak} variant="orbital" size="sm" disabled={loading} className="flex items-center gap-2">
                   <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                   {loading ? 'Loading...' : 'Refresh from Celestrak'}
                 </Button>
-                <Button 
-                  onClick={computeTracksAndConjunctions} 
-                  variant="satellite" 
-                  size="sm"
-                  disabled={running || sats.length === 0}
-                >
+                <Button onClick={computeTracksAndConjunctions} variant="satellite" size="sm" disabled={running || sats.length === 0}>
                   {running ? 'Analyzing...' : 'Run Analysis'}
                 </Button>
               </div>
@@ -581,23 +625,19 @@ const SatelliteDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Textarea 
-                value={tleText} 
-                onChange={(e) => setTleText(e.target.value)}
-                placeholder="Paste custom TLE data here (optional)..."
-                className="h-24 font-mono text-xs bg-muted/50"
-              />
+              <Textarea value={tleText} onChange={e => setTleText(e.target.value)} placeholder="Paste custom TLE data here (optional)..." className="h-24 font-mono text-xs bg-muted/50" />
               <div className="flex gap-2">
                 <Button onClick={loadTLEs} variant="outline" size="sm">
                   Load Custom TLEs
                 </Button>
-                <Button 
-                  onClick={() => { 
-                    setSats([]); setTracks([]); setConjunctions([]); setAlerts([]); setTleText(''); setAutoLoaded(false);
-                  }} 
-                  variant="ghost" 
-                  size="sm"
-                >
+                <Button onClick={() => {
+                setSats([]);
+                setTracks([]);
+                setConjunctions([]);
+                setAlerts([]);
+                setTleText('');
+                setAutoLoaded(false);
+              }} variant="ghost" size="sm">
                   Clear All
                 </Button>
               </div>
@@ -615,70 +655,34 @@ const SatelliteDashboard = () => {
             <CardContent className="space-y-3">
               <div>
                 <Label htmlFor="threshold" className="text-xs">Threshold Distance (km)</Label>
-                <Input 
-                  id="threshold"
-                  type="number" 
-                  value={thresholdKm} 
-                  onChange={(e) => setThresholdKm(Number(e.target.value))}
-                  className="h-8"
-                />
+                <Input id="threshold" type="number" value={thresholdKm} onChange={e => setThresholdKm(Number(e.target.value))} className="h-8" />
               </div>
               <div>
                 <Label htmlFor="window" className="text-xs">Time Window (minutes)</Label>
-                <Input 
-                  id="window"
-                  type="number" 
-                  value={windowMinutes} 
-                  onChange={(e) => setWindowMinutes(Number(e.target.value))}
-                  className="h-8"
-                />
+                <Input id="window" type="number" value={windowMinutes} onChange={e => setWindowMinutes(Number(e.target.value))} className="h-8" />
               </div>
               <div>
                 <Label htmlFor="sample" className="text-xs">Sample Rate (seconds)</Label>
-                <Input 
-                  id="sample"
-                  type="number" 
-                  value={sampleSec} 
-                  onChange={(e) => setSampleSec(Number(e.target.value))}
-                  className="h-8"
-                />
+                <Input id="sample" type="number" value={sampleSec} onChange={e => setSampleSec(Number(e.target.value))} className="h-8" />
               </div>
             </CardContent>
           </Card>
 
           {/* Orbit Control Panel */}
-          <OrbitControlPanel
-            orbitCounts={orbitCounts}
-            orbitVisibility={orbitVisibility}
-            onVisibilityChange={(orbitType, visible) => {
-              setOrbitVisibility(prev => ({
-                ...prev,
-                [orbitType]: visible
-              }));
-            }}
-          />
+          <OrbitControlPanel orbitCounts={orbitCounts} orbitVisibility={orbitVisibility} onVisibilityChange={(orbitType, visible) => {
+          setOrbitVisibility(prev => ({
+            ...prev,
+            [orbitType]: visible
+          }));
+        }} />
 
           {/* Space Debris & Meteor Tracking */}
-          <SpaceDebrisTracker 
-            satellites={sats}
-            onDebrisUpdate={setDebris}
-            onCollisionRisks={setCollisionRisks}
-          />
+          <SpaceDebrisTracker satellites={sats} onDebrisUpdate={setDebris} onCollisionRisks={setCollisionRisks} />
           
-          <MeteorTracker 
-            satellites={sats}
-            onMeteorUpdate={setMeteors}
-            onImpactRisks={setImpactRisks}
-          />
+          <MeteorTracker satellites={sats} onMeteorUpdate={setMeteors} onImpactRisks={setImpactRisks} />
 
           {/* Collision Analysis */}
-          <CollisionAnalyzer
-            satellites={sats}
-            debris={debris}
-            meteors={meteors}
-            collisionRisks={collisionRisks}
-            impactRisks={impactRisks}
-          />
+          <CollisionAnalyzer satellites={sats} debris={debris} meteors={meteors} collisionRisks={collisionRisks} impactRisks={impactRisks} />
 
           {/* Status */}
           <Card>
@@ -729,8 +733,7 @@ const SatelliteDashboard = () => {
           </Card>
 
           {/* Alerts */}
-          {alerts.length > 0 && (
-            <Card>
+          {alerts.length > 0 && <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-destructive" />
@@ -739,19 +742,15 @@ const SatelliteDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {alerts.map((alert, i) => (
-                    <div key={i} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
+                  {alerts.map((alert, i) => <div key={i} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
                       {alert}
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
 
           {/* Conjunctions Table */}
-          {conjunctions.length > 0 && (
-            <Card>
+          {conjunctions.length > 0 && <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
@@ -770,8 +769,7 @@ const SatelliteDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {conjunctions.map((c, idx) => (
-                        <tr key={idx} className="border-b border-border/50">
+                      {conjunctions.map((c, idx) => <tr key={idx} className="border-b border-border/50">
                           <td className="p-1 font-mono">{c.satA}</td>
                           <td className="p-1 font-mono">{c.satB}</td>
                           <td className="p-1 text-right font-mono text-destructive">
@@ -780,14 +778,12 @@ const SatelliteDashboard = () => {
                           <td className="p-1 font-mono text-xs">
                             {new Date(c.tca).toLocaleTimeString()}
                           </td>
-                        </tr>
-                      ))}
+                        </tr>)}
                     </tbody>
                   </table>
                 </div>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
 
           {/* Disclaimer */}
           <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-lg border">
@@ -799,12 +795,7 @@ const SatelliteDashboard = () => {
 
       {/* Globe Visualization */}
       <div className="flex-1 relative overflow-hidden">
-        <EarthGlobe
-          pointsData={pointsData}
-          arcsData={arcsData}
-          width={typeof window !== 'undefined' ? window.innerWidth - (window.innerWidth > 1024 ? 384 : 0) : 800}
-          height={typeof window !== 'undefined' ? window.innerHeight : 600}
-        />
+        <EarthGlobe pointsData={pointsData} arcsData={arcsData} width={typeof window !== 'undefined' ? window.innerWidth - (window.innerWidth > 1024 ? 384 : 0) : 800} height={typeof window !== 'undefined' ? window.innerHeight : 600} />
         
         {/* Globe Controls Overlay */}
         <div className="absolute top-4 right-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 shadow-lg">
@@ -831,15 +822,7 @@ const SatelliteDashboard = () => {
         </div>
       </div>
       
-      <SpaceAIChat
-        satelliteData={sats}
-        debrisData={debris}
-        meteorData={meteors}
-        collisionRisks={collisionRisks}
-        conjunctions={conjunctions}
-      />
-    </div>
-  );
+      <SpaceAIChat satelliteData={sats} debrisData={debris} meteorData={meteors} collisionRisks={collisionRisks} conjunctions={conjunctions} />
+    </div>;
 };
-
 export default SatelliteDashboard;
