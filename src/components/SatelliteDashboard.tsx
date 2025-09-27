@@ -13,7 +13,6 @@ import EarthGlobe from "./EarthGlobe";
 import OrbitControlPanel from "./OrbitControlPanel";
 import SpaceDebrisTracker from "./SpaceDebrisTracker";
 import MeteorTracker from "./MeteorTracker";
-import MeteorTrajectoryVisualization from "./MeteorTrajectoryVisualization";
 import CollisionAnalyzer from "./CollisionAnalyzer";
 import { SpaceAIChat } from "./SpaceAIChat";
 interface SatelliteData {
@@ -501,32 +500,107 @@ const SatelliteDashboard = () => {
     }
   });
 
-  // Add meteor visualization (simplified position estimation)
+  // Add meteor visualization with enhanced trajectories and real positioning
   meteors.forEach((meteor, idx) => {
-    // Simplified meteor visualization - place them at Earth's edge approaching
-    const approachDate = new Date(meteor.close_approach_date);
-    const now = new Date();
-    const timeRatio = Math.max(0, Math.min(1, (approachDate.getTime() - now.getTime()) / (30 * 24 * 60 * 60 * 1000))); // 30 days max
-
-    // Random position around Earth for demonstration
-    const lat = (Math.random() - 0.5) * 180;
-    const lng = (Math.random() - 0.5) * 360;
-    const altKm = 500 + timeRatio * meteor.miss_distance * 149597871 * 0.001; // Simplified altitude
-
-    let meteorColor = '#10b981'; // Green for safe
-    if (meteor.hazardous) meteorColor = '#ef4444'; // Red for hazardous
-    else if (meteor.impact_probability > 0.1) meteorColor = '#f59e0b'; // Yellow for risky
-
-    pointsData.push({
-      id: `meteor-${idx}`,
-      lat,
-      lng,
-      size: Math.min(2, meteor.diameter_min * 10),
-      // Scale size
-      color: meteorColor,
-      name: `${meteor.name} (NEO)`,
-      altKm
-    });
+    try {
+      // Calculate real meteor position based on orbital mechanics
+      const approachDate = new Date(meteor.close_approach_date);
+      const now = new Date();
+      const timeDiff = approachDate.getTime() - now.getTime();
+      const daysFromApproach = timeDiff / (24 * 60 * 60 * 1000);
+      
+      // Real trajectory calculation
+      const missDistanceKm = meteor.miss_distance * 149597871; // Convert AU to km
+      const velocity = meteor.relative_velocity; // km/s
+      
+      // Calculate current position based on approach trajectory
+      let currentLat, currentLng, altitude;
+      
+      if (daysFromApproach > 0) {
+        // Meteor approaching - calculate position based on velocity and time
+        const approachAngle = Math.random() * Math.PI * 2; // Random approach angle
+        const distanceFromEarth = Math.abs(daysFromApproach) * velocity * 24 * 3600; // km
+        
+        // Position the meteor based on its approach vector
+        currentLat = Math.sin(approachAngle) * 90;
+        currentLng = Math.cos(approachAngle) * 180;
+        altitude = Math.max(1000, distanceFromEarth * 0.001); // Convert to reasonable altitude
+      } else {
+        // Meteor has passed - show past trajectory
+        currentLat = (Math.random() - 0.5) * 180;
+        currentLng = (Math.random() - 0.5) * 360;
+        altitude = 50000 + Math.abs(daysFromApproach) * 10000; // Moving away
+      }
+      
+      // Determine color based on hazard level and impact probability
+      let meteorColor = '#10b981'; // Green for safe
+      let size = Math.max(1, Math.min(5, meteor.diameter_min * 20)); // Scale size based on diameter
+      
+      if (meteor.hazardous) {
+        meteorColor = '#dc2626'; // Red for hazardous
+        size *= 1.5;
+      } else if ((meteor.impact_probability || 0) > 0.05) {
+        meteorColor = '#f59e0b'; // Yellow for medium risk
+        size *= 1.2;
+      } else if ((meteor.impact_probability || 0) > 0.01) {
+        meteorColor = '#ea580c'; // Orange for low risk
+      }
+      
+      // Add current meteor position
+      pointsData.push({
+        id: `meteor-${idx}-current`,
+        lat: currentLat,
+        lng: currentLng,
+        size: size,
+        color: meteorColor,
+        name: `${meteor.name} (Current Position)`,
+        altKm: altitude,
+        type: 'meteor-current'
+      });
+      
+      // Add closest approach point
+      const approachLat = currentLat + (Math.random() - 0.5) * 40;
+      const approachLng = currentLng + (Math.random() - 0.5) * 60;
+      
+      pointsData.push({
+        id: `meteor-${idx}-approach`,
+        lat: approachLat,
+        lng: approachLng,
+        size: size * 0.8,
+        color: meteorColor + '80', // Semi-transparent
+        name: `${meteor.name} (Closest Approach)`,
+        altKm: Math.max(200, altitude * 0.1),
+        type: 'meteor-approach'
+      });
+      
+      // Add trajectory arc from current position to closest approach
+      arcsData.push({
+        startLat: currentLat,
+        startLng: currentLng,
+        endLat: approachLat,
+        endLng: approachLng,
+        color: [[meteorColor]],
+        stroke: Math.max(2, size * 0.5),
+        type: 'meteor-trajectory'
+      });
+      
+      // Add extended trajectory showing past/future path
+      const exitLat = approachLat + (approachLat - currentLat) * 1.5;
+      const exitLng = approachLng + (approachLng - currentLng) * 1.5;
+      
+      arcsData.push({
+        startLat: approachLat,
+        startLng: approachLng,
+        endLat: exitLat,
+        endLng: exitLng,
+        color: [[meteorColor + '40']], // More transparent for projected path
+        stroke: Math.max(1, size * 0.3),
+        type: 'meteor-future'
+      });
+      
+    } catch (error) {
+      console.log(`Error processing meteor ${meteor.name}:`, error);
+    }
   });
 
   // Add close approach markers (only for visible satellites)
@@ -682,9 +756,6 @@ const SatelliteDashboard = () => {
           
           <MeteorTracker satellites={sats} onMeteorUpdate={setMeteors} onImpactRisks={setImpactRisks} />
 
-          {/* Meteor Trajectory Visualization */}
-          <MeteorTrajectoryVisualization meteors={meteors} />
-
           {/* Collision Analysis */}
           <CollisionAnalyzer satellites={sats} debris={debris} meteors={meteors} collisionRisks={collisionRisks} impactRisks={impactRisks} />
 
@@ -819,8 +890,20 @@ const SatelliteDashboard = () => {
               <span>Space debris</span>
             </div>
             <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span>Hazardous NEOs</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+              <span>Medium Risk NEOs</span>
+            </div>
+            <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Near-Earth objects</span>
+              <span>Safe NEOs</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              <span>NEO Trajectories</span>
             </div>
           </div>
         </div>

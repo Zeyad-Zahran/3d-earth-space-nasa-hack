@@ -252,7 +252,7 @@ const MeteorTracker: React.FC<MeteorTrackerProps> = ({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Zap className="w-4 h-4" />
-            Near-Earth Objects
+            Near-Earth Objects (NEO) - Live Data
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -284,7 +284,7 @@ const MeteorTracker: React.FC<MeteorTrackerProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <Zap className="w-3 h-3 text-purple-500" />
-              <span>Sat Risk: {highSatelliteRiskCount}</span>
+              <span>Satellite Risk: {highSatelliteRiskCount}</span>
             </div>
           </div>
           
