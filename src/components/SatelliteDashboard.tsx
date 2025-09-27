@@ -13,6 +13,7 @@ import EarthGlobe from "./EarthGlobe";
 import OrbitControlPanel from "./OrbitControlPanel";
 import SpaceDebrisTracker from "./SpaceDebrisTracker";
 import MeteorTracker from "./MeteorTracker";
+import MeteorTrajectoryVisualization from "./MeteorTrajectoryVisualization";
 import CollisionAnalyzer from "./CollisionAnalyzer";
 import { SpaceAIChat } from "./SpaceAIChat";
 interface SatelliteData {
@@ -680,6 +681,9 @@ const SatelliteDashboard = () => {
           <SpaceDebrisTracker satellites={sats} onDebrisUpdate={setDebris} onCollisionRisks={setCollisionRisks} />
           
           <MeteorTracker satellites={sats} onMeteorUpdate={setMeteors} onImpactRisks={setImpactRisks} />
+
+          {/* Meteor Trajectory Visualization */}
+          <MeteorTrajectoryVisualization meteors={meteors} />
 
           {/* Collision Analysis */}
           <CollisionAnalyzer satellites={sats} debris={debris} meteors={meteors} collisionRisks={collisionRisks} impactRisks={impactRisks} />

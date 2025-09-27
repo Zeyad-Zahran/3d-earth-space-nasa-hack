@@ -62,15 +62,36 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
   };
 
   // Create curved path between two points
-  const createArcCurve = (start: THREE.Vector3, end: THREE.Vector3, numPoints: number = 50) => {
+  const createArcCurve = (start: THREE.Vector3, end: THREE.Vector3, numPoints: number = 50, arcHeight: number = 0.3) => {
     const points = [];
     for (let i = 0; i <= numPoints; i++) {
       const t = i / numPoints;
       // Create arc by interpolating and adding height
       const point = start.clone().lerp(end, t);
-      const height = Math.sin(t * Math.PI) * 0.3; // Arc height
+      const height = Math.sin(t * Math.PI) * arcHeight; // Variable arc height
       point.normalize().multiplyScalar(1 + height);
       points.push(point);
+    }
+    return points;
+  };
+
+  // Create animated trajectory path for meteors
+  const createAnimatedTrajectory = (start: THREE.Vector3, end: THREE.Vector3, animationPhase: number = 0) => {
+    const totalPoints = 100;
+    const visiblePoints = Math.floor(totalPoints * 0.3); // Show 30% of the trajectory
+    const startIndex = Math.floor((totalPoints - visiblePoints) * (animationPhase / 100));
+    
+    const points = [];
+    for (let i = 0; i < totalPoints; i++) {
+      const t = i / totalPoints;
+      const point = start.clone().lerp(end, t);
+      const height = Math.sin(t * Math.PI) * 0.4; // Higher arc for meteors
+      point.normalize().multiplyScalar(1 + height);
+      
+      // Only include points in the visible range for animation effect
+      if (i >= startIndex && i < startIndex + visiblePoints) {
+        points.push(point);
+      }
     }
     return points;
   };
@@ -221,16 +242,50 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
     pointsData.forEach(point => {
       const position = latLngToVector3(point.lat, point.lng, 1, (point.altKm || 0) * 0.0002);
       
-      const geometry = new THREE.SphereGeometry(point.size * 0.01, 8, 8);
+      // Check if this is a meteor point
+      const isMeteor = point.name?.includes('(NEO)') || point.id?.includes('meteor');
+      const isCurrentMeteorPosition = point.name?.includes('Current');
+      
+      let pointSize = point.size * 0.01;
+      let opacity = 0.8;
+      
+      // Enhanced visualization for meteors
+      if (isMeteor) {
+        pointSize *= 1.5; // Make meteors larger
+        opacity = isCurrentMeteorPosition ? 1.0 : 0.7;
+      }
+      
+      const geometry = new THREE.SphereGeometry(pointSize, 8, 8);
       const material = new THREE.MeshBasicMaterial({ 
         color: point.color,
         transparent: true,
-        opacity: 0.8
+        opacity: opacity
       });
       
       const sphere = new THREE.Mesh(geometry, material);
       sphere.position.copy(position);
       pointsGroupRef.current!.add(sphere);
+      
+      // Add pulsing effect for current meteor positions
+      if (isCurrentMeteorPosition) {
+        const pulseGeometry = new THREE.SphereGeometry(pointSize * 2, 8, 8);
+        const pulseMaterial = new THREE.MeshBasicMaterial({
+          color: point.color,
+          transparent: true,
+          opacity: 0.3
+        });
+        const pulseRing = new THREE.Mesh(pulseGeometry, pulseMaterial);
+        pulseRing.position.copy(position);
+        pointsGroupRef.current!.add(pulseRing);
+        
+        // Animate the pulse effect
+        const animate = () => {
+          const scale = 1 + 0.3 * Math.sin(Date.now() * 0.003);
+          pulseRing.scale.setScalar(scale);
+          requestAnimationFrame(animate);
+        };
+        animate();
+      }
     });
   }, [pointsData]);
 
@@ -244,18 +299,50 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
     arcsData.forEach(arc => {
       const startPos = latLngToVector3(arc.startLat, arc.startLng);
       const endPos = latLngToVector3(arc.endLat, arc.endLng);
-      const arcPoints = createArcCurve(startPos, endPos, 30);
       
-      const geometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
-      const material = new THREE.LineBasicMaterial({ 
-        color: arc.color[0][0] || '#22c55e',
-        transparent: true,
-        opacity: 0.7,
-        linewidth: arc.stroke || 1
-      });
+      // Check if this is a meteor trajectory (has special properties)
+      const isMeteorTrajectory = arc.color[0][0]?.includes('#') && (
+        arc.color[0][0].includes('#dc2626') || // CRITICAL
+        arc.color[0][0].includes('#ea580c') || // HIGH
+        arc.color[0][0].includes('#d97706') || // MEDIUM
+        arc.color[0][0].includes('#16a34a')    // LOW
+      );
       
-      const line = new THREE.Line(geometry, material);
-      arcsGroupRef.current!.add(line);
+      let arcPoints;
+      if (isMeteorTrajectory) {
+        // Use animated trajectory for meteors
+        arcPoints = createAnimatedTrajectory(startPos, endPos, Date.now() / 100 % 100);
+      } else {
+        // Use standard arc for satellites
+        arcPoints = createArcCurve(startPos, endPos, 30, 0.3);
+      }
+      
+      if (arcPoints.length > 1) {
+        const geometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
+        
+        // Enhanced material with glow effect for meteors
+        const material = new THREE.LineBasicMaterial({ 
+          color: arc.color[0][0] || '#22c55e',
+          transparent: true,
+          opacity: isMeteorTrajectory ? 0.9 : 0.7,
+          linewidth: arc.stroke || (isMeteorTrajectory ? 3 : 1)
+        });
+        
+        const line = new THREE.Line(geometry, material);
+        arcsGroupRef.current!.add(line);
+        
+        // Add glow effect for meteor trajectories
+        if (isMeteorTrajectory) {
+          const glowMaterial = new THREE.LineBasicMaterial({
+            color: arc.color[0][0] || '#22c55e',
+            transparent: true,
+            opacity: 0.3,
+            linewidth: (arc.stroke || 3) * 2
+          });
+          const glowLine = new THREE.Line(geometry.clone(), glowMaterial);
+          arcsGroupRef.current!.add(glowLine);
+        }
+      }
     });
   }, [arcsData]);
 
