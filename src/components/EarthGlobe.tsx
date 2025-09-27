@@ -9,7 +9,6 @@ interface EarthPoint {
   color: string;
   name: string;
   altKm?: number;
-  type?: string;
 }
 
 interface EarthArc {
@@ -19,7 +18,6 @@ interface EarthArc {
   endLng: number;
   color: string[][];
   stroke?: number;
-  type?: string;
 }
 
 interface EarthGlobeProps {
@@ -64,36 +62,15 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
   };
 
   // Create curved path between two points
-  const createArcCurve = (start: THREE.Vector3, end: THREE.Vector3, numPoints: number = 50, arcHeight: number = 0.3) => {
+  const createArcCurve = (start: THREE.Vector3, end: THREE.Vector3, numPoints: number = 50) => {
     const points = [];
     for (let i = 0; i <= numPoints; i++) {
       const t = i / numPoints;
       // Create arc by interpolating and adding height
       const point = start.clone().lerp(end, t);
-      const height = Math.sin(t * Math.PI) * arcHeight; // Variable arc height
+      const height = Math.sin(t * Math.PI) * 0.3; // Arc height
       point.normalize().multiplyScalar(1 + height);
       points.push(point);
-    }
-    return points;
-  };
-
-  // Create animated trajectory path for meteors
-  const createAnimatedTrajectory = (start: THREE.Vector3, end: THREE.Vector3, animationPhase: number = 0) => {
-    const totalPoints = 100;
-    const visiblePoints = Math.floor(totalPoints * 0.3); // Show 30% of the trajectory
-    const startIndex = Math.floor((totalPoints - visiblePoints) * (animationPhase / 100));
-    
-    const points = [];
-    for (let i = 0; i < totalPoints; i++) {
-      const t = i / totalPoints;
-      const point = start.clone().lerp(end, t);
-      const height = Math.sin(t * Math.PI) * 0.4; // Higher arc for meteors
-      point.normalize().multiplyScalar(1 + height);
-      
-      // Only include points in the visible range for animation effect
-      if (i >= startIndex && i < startIndex + visiblePoints) {
-        points.push(point);
-      }
     }
     return points;
   };
@@ -244,79 +221,16 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
     pointsData.forEach(point => {
       const position = latLngToVector3(point.lat, point.lng, 1, (point.altKm || 0) * 0.0002);
       
-      // Enhanced visualization for meteors
-      const isMeteor = point.name?.includes('(NEO)') || point.id?.includes('meteor') || point.type?.includes('meteor');
-      const isCurrentMeteor = point.type === 'meteor-current';
-      const isApproachPoint = point.type === 'meteor-approach';
-      
-      let pointSize = point.size * 0.01;
-      let opacity = 0.8;
-      
-      // Enhanced visualization for meteors with better scaling
-      if (isMeteor) {
-        pointSize *= (isCurrentMeteor ? 2.5 : 1.8); // Make current meteors largest
-        opacity = isCurrentMeteor ? 1.0 : (isApproachPoint ? 0.8 : 0.7);
-      }
-      
-      const geometry = new THREE.SphereGeometry(pointSize, 12, 12);
+      const geometry = new THREE.SphereGeometry(point.size * 0.01, 8, 8);
       const material = new THREE.MeshBasicMaterial({ 
         color: point.color,
         transparent: true,
-        opacity: opacity
+        opacity: 0.8
       });
       
       const sphere = new THREE.Mesh(geometry, material);
       sphere.position.copy(position);
       pointsGroupRef.current!.add(sphere);
-      
-      // Add enhanced effects for current meteor positions
-      if (isCurrentMeteor) {
-        // Outer glow ring
-        const glowGeometry = new THREE.SphereGeometry(pointSize * 2.5, 12, 12);
-        const glowMaterial = new THREE.MeshBasicMaterial({
-          color: point.color,
-          transparent: true,
-          opacity: 0.2
-        });
-        const glowRing = new THREE.Mesh(glowGeometry, glowMaterial);
-        glowRing.position.copy(position);
-        pointsGroupRef.current!.add(glowRing);
-        
-        // Animated pulse effect
-        const pulseGeometry = new THREE.SphereGeometry(pointSize * 1.8, 12, 12);
-        const pulseMaterial = new THREE.MeshBasicMaterial({
-          color: point.color,
-          transparent: true,
-          opacity: 0.4
-        });
-        const pulseRing = new THREE.Mesh(pulseGeometry, pulseMaterial);
-        pulseRing.position.copy(position);
-        pointsGroupRef.current!.add(pulseRing);
-        
-        // Animate the pulse effect
-        const animate = () => {
-          const time = Date.now() * 0.002;
-          const scale = 1 + 0.5 * Math.sin(time);
-          const opacity = 0.4 + 0.3 * Math.sin(time);
-          pulseRing.scale.setScalar(scale);
-          (pulseMaterial as THREE.MeshBasicMaterial).opacity = opacity;
-          requestAnimationFrame(animate);
-        };
-        animate();
-      }
-      
-      // Add trail effect for approach points
-      if (isApproachPoint) {
-        const trailGeometry = new THREE.SphereGeometry(pointSize * 1.3, 8, 8);
-        const trailMaterial = new THREE.MeshBasicMaterial({
-          color: point.color,
-          transparent: true,
-          opacity: 0.3
-        });
-        const trail = new THREE.Mesh(trailGeometry, trailMaterial);
-        trail.position.copy(position);
-        pointsGroupRef.current!.add(trail);
-      }
     });
   }, [pointsData]);
 
@@ -330,75 +244,18 @@ const EarthGlobe: React.FC<EarthGlobeProps> = ({
     arcsData.forEach(arc => {
       const startPos = latLngToVector3(arc.startLat, arc.startLng);
       const endPos = latLngToVector3(arc.endLat, arc.endLng);
+      const arcPoints = createArcCurve(startPos, endPos, 30);
       
-      // Enhanced trajectory visualization for meteors
-      const isMeteorTrajectory = arc.type?.includes('meteor');
-      const isFutureTrajectory = arc.type === 'meteor-future';
+      const geometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
+      const material = new THREE.LineBasicMaterial({ 
+        color: arc.color[0][0] || '#22c55e',
+        transparent: true,
+        opacity: 0.7,
+        linewidth: arc.stroke || 1
+      });
       
-      let arcPoints;
-      if (isMeteorTrajectory) {
-        // Higher arc for meteors to show clear trajectories
-        const arcHeight = isFutureTrajectory ? 0.6 : 0.8;
-        arcPoints = createArcCurve(startPos, endPos, 60, arcHeight);
-      } else {
-        // Standard arc for satellites
-        arcPoints = createArcCurve(startPos, endPos, 30, 0.3);
-      }
-      
-      if (arcPoints.length > 1) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
-        
-        // Enhanced material with better visibility for meteors
-        const baseColor = arc.color[0][0] || '#22c55e';
-        const opacity = isFutureTrajectory ? 0.5 : (isMeteorTrajectory ? 0.9 : 0.7);
-        const lineWidth = arc.stroke || (isMeteorTrajectory ? 4 : 1);
-        
-        const material = new THREE.LineBasicMaterial({ 
-          color: baseColor,
-          transparent: true,
-          opacity: opacity,
-          linewidth: lineWidth
-        });
-        
-        const line = new THREE.Line(geometry, material);
-        arcsGroupRef.current!.add(line);
-        
-        // Add glow effect for current meteor trajectories
-        if (isMeteorTrajectory && !isFutureTrajectory) {
-          const glowGeometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
-          const glowMaterial = new THREE.LineBasicMaterial({
-            color: baseColor,
-            transparent: true,
-            opacity: 0.3,
-            linewidth: lineWidth * 2
-          });
-          const glowLine = new THREE.Line(glowGeometry, glowMaterial);
-          arcsGroupRef.current!.add(glowLine);
-          
-          // Add particle trail effect for active meteors
-          const particleCount = 20;
-          const particleGeometry = new THREE.BufferGeometry();
-          const particlePositions = [];
-          
-          for (let i = 0; i < particleCount; i++) {
-            const t = i / particleCount;
-            const point = arcPoints[Math.floor(t * (arcPoints.length - 1))];
-            particlePositions.push(point.x, point.y, point.z);
-          }
-          
-          particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(particlePositions, 3));
-          
-          const particleMaterial = new THREE.PointsMaterial({
-            color: baseColor,
-            size: 0.02,
-            transparent: true,
-            opacity: 0.8
-          });
-          
-          const particles = new THREE.Points(particleGeometry, particleMaterial);
-          arcsGroupRef.current!.add(particles);
-        }
-      }
+      const line = new THREE.Line(geometry, material);
+      arcsGroupRef.current!.add(line);
     });
   }, [arcsData]);
 
